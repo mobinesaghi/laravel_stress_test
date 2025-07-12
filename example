@@ -1,0 +1,47 @@
+use Symfony\Component\HttpFoundation\StreamedResponse;
+Route::get('/laravel_stress_test', function () {
+    return new StreamedResponse(function () {
+        @ini_set('zlib.output_compression', 0);
+        @ini_set('output_buffering', 0);
+        @ini_set('implicit_flush', 1);
+        while (ob_get_level()) { ob_end_flush(); }
+
+        header('Content-Type: text/plain; charset=UTF-8');
+        header('Cache-Control: no-cache');
+        header('X-Accel-Buffering: no');
+
+        for ($i = 1; $i <= 1000; $i++) {
+            $t0 = microtime(true);
+
+            try {
+                $r = Http::post('https://google.com', [])
+                    ->throw();
+                $code = $r->status();
+                $body = json_encode($r->json(), JSON_UNESCAPED_UNICODE);
+            } catch (RequestException $e) {
+                $resp = $e->response;
+                $code = $resp ? $resp->status() : 'N/A';
+                $html = $resp ? $resp->body() : '';
+                if (preg_match('/<title>(.*?)<\/title>/is', $html, $m)) {
+                    $body = $m[1];
+                } else {
+                    $body = trim(preg_replace('/\s+/', ' ', strip_tags($html)));
+                }
+            } catch (\Throwable $e) {
+                $code = 'ERR';
+                $body = $e->getMessage();
+            }
+
+            $dt     = round((microtime(true) - $t0) * 1000);
+            $status = (is_int($code) && $code >= 200 && $code < 300) ? 'OK' : 'ERR';
+
+            echo "#{$i} {$status} {$code} {$dt}ms {$body}\n";
+            @flush();
+        }
+    }, 200, [
+        'Content-Type'      => 'text/plain; charset=UTF-8',
+        'Cache-Control'     => 'no-cache, must-revalidate',
+        'X-Accel-Buffering' => 'no',
+        'Connection'        => 'keep-alive',
+    ]);
+});

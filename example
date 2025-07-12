@@ -1,3 +1,4 @@
+<?php
 use Symfony\Component\HttpFoundation\StreamedResponse;
 Route::get('/laravel_stress_test', function () {
     return new StreamedResponse(function () {
